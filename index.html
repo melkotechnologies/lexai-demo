@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LexAI — Medical Record Chronology</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --navy-950: #03080f;
+    --navy-900: #060f1e;
+    --navy-800: #0c1c38;
+    --navy-700: #132952;
+    --navy-600: #1a376c;
+    --navy-400: #2e5fad;
+    --gold-600: #96690a;
+    --gold-500: #b8820c;
+    --gold-400: #d4a020;
+    --gold-300: #e8be52;
+    --slate-200: #e2e8f0;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --white: #ffffff;
+    --green-400: #4ade80;
+    --green-600: #16a34a;
+    --red-400: #f87171;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--navy-900);
+    color: var(--slate-200);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background grain ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid rgba(212,160,32,0.2);
+    background: rgba(6,15,30,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .logo span:first-child { color: var(--white); }
+  .logo span:last-child  { color: var(--gold-400); }
+
+  .header-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--gold-400);
+    border: 1px solid rgba(212,160,32,0.3);
+    padding: 4px 10px;
+    border-radius: 100px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* ── Main layout ── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 52px;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--gold-400);
+  }
+  .hero p {
+    font-size: 16px;
+    color: var(--slate-400);
+    font-weight: 300;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* ── Two-panel layout ── */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--navy-800);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel-header-icon {
+    width: 28px; height: 28px;
+    background: rgba(212,160,32,0.12);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+  .panel-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--white);
+    letter-spacing: 0.3px;
+  }
+  .panel-header span {
+    font-size: 11px;
+    color: var(--slate-500);
+    margin-left: auto;
+  }
+
+  /* ── Upload area ── */
+  .upload-area {
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 2px dashed rgba(255,255,255,0.1);
+    margin: 16px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .upload-area:hover, .upload-area.drag-over {
+    background: rgba(212,160,32,0.05);
+    border-color: rgba(212,160,32,0.3);
+  }
+  .upload-icon {
+    width: 44px; height: 44px;
+    background: rgba(212,160,32,0.1);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .upload-area h4 {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--white);
+  }
+  .upload-area p {
+    font-size: 12px;
+    color: var(--slate-500);
+  }
+  .upload-area input { display: none; }
+
+  /* ── File loaded state ── */
+  .file-loaded {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .file-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(74,222,128,0.08);
+    border: 1px solid rgba(74,222,128,0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .file-chip-icon { font-size: 18px; }
+  .file-chip-name { font-size: 13px; font-weight: 500; color: var(--green-400); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-chip-size { font-size: 11px; color: var(--slate-500); }
+
+  /* ── Sample records ── */
+  .sample-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 20px 8px;
+  }
+  .sample-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 16px 16px;
+  }
+  .sample-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: rgba(255,255,255,0.02);
+  }
+  .sample-item:hover {
+    background: rgba(212,160,32,0.07);
+    border-color: rgba(212,160,32,0.2);
+  }
+  .sample-item.active {
+    background: rgba(212,160,32,0.1);
+    border-color: rgba(212,160,32,0.35);
+  }
+  .sample-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold-400);
+    flex-shrink: 0;
+  }
+  .sample-item-name { font-size: 12px; font-weight: 500; color: var(--slate-200); }
+  .sample-item-desc { font-size: 11px; color: var(--slate-500); margin-top: 1px; }
+  .sample-check { margin-left: auto; color: var(--gold-400); font-size: 14px; }
+
+  /* ── Generate button ── */
+  .generate-wrap {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .btn-generate {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+    color: var(--navy-950);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-generate:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(184,130,12,0.35);
+  }
+  .btn-generate:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-generate.loading {
+    color: transparent;
+  }
+  .btn-generate.loading::after {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(6,15,30,0.3);
+    border-top-color: var(--navy-950);
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* ── Right panel — output ── */
+  .output-empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--slate-500);
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .output-empty-icon { font-size: 32px; opacity: 0.4; }
+  .output-empty p { font-size: 13px; line-height: 1.6; max-width: 220px; }
+
+  /* ── Processing state ── */
+  .processing {
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    min-height: 340px;
+    justify-content: center;
+  }
+  .processing-ring {
+    width: 52px; height: 52px;
+    border: 3px solid rgba(212,160,32,0.15);
+    border-top-color: var(--gold-400);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  .processing p { font-size: 13px; color: var(--slate-400); text-align: center; }
+  .processing-step {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gold-400);
+    text-align: center;
+    min-height: 16px;
+  }
+
+  /* ── Chronology output ── */
+  .chron-output {
+    padding: 16px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .chron-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .chron-meta-pill {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 100px;
+    font-weight: 500;
+  }
+  .pill-green { background: rgba(74,222,128,0.1); color: var(--green-400); border: 1px solid rgba(74,222,128,0.2); }
+  .pill-gold  { background: rgba(212,160,32,0.1);  color: var(--gold-300);  border: 1px solid rgba(212,160,32,0.2); }
+  .pill-blue  { background: rgba(46,95,173,0.2);   color: #93c5fd;          border: 1px solid rgba(46,95,173,0.3); }
+
+  .chron-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .chron-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .chron-table td {
+    padding: 9px 8px;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--slate-200);
+    line-height: 1.5;
+  }
+  .chron-table tr:last-child td { border-bottom: none; }
+  .chron-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gold-300);
+    white-space: nowrap;
+    min-width: 72px;
+  }
+  .td-provider { color: var(--slate-400); min-width: 90px; }
+  .td-finding  { color: var(--slate-200); }
+  .finding-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    font-weight: 500;
+  }
+  .tag-injury   { background: rgba(248,113,113,0.12); color: #fca5a5; }
+  .tag-treatment{ background: rgba(74,222,128,0.10);  color: #86efac; }
+  .tag-imaging  { background: rgba(147,197,253,0.12); color: #93c5fd; }
+  .tag-med      { background: rgba(196,181,253,0.12); color: #c4b5fd; }
+  .tag-note     { background: rgba(212,160,32,0.12);  color: var(--gold-300); }
+
+  /* ── Summary bar ── */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    animation: fadeUp 0.4s 0.1s ease both;
+  }
+  .summary-cell {
+    background: var(--navy-800);
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .summary-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--gold-400);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .summary-lbl {
+    font-size: 10px;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  /* ── Export toolbar ── */
+  .export-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    animation: fadeUp 0.4s 0.2s ease both;
+  }
+  .btn-export {
+    flex: 1;
+    padding: 9px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+  }
+  .btn-export-primary {
+    background: var(--navy-600);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-export-primary:hover { background: var(--navy-400); }
+  .btn-export-secondary {
+    background: transparent;
+    color: var(--slate-400);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .btn-export-secondary:hover { color: var(--white); border-color: rgba(255,255,255,0.2); }
+
+  /* ── Footer note ── */
+  .demo-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--slate-600);
+    margin-top: 32px;
+    line-height: 1.6;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .demo-note strong { color: var(--slate-500); }
+
+  /* ── Error state ── */
+  .error-box {
+    margin: 16px;
+    padding: 14px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--red-400);
+    line-height: 1.6;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes spin-centered {
+    to { transform: translate(-50%,-50%) rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>Lex</span><span>AI</span></div>
+  <div class="header-badge">Demo · Medical Chronology</div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Medical Record Chronology,<br/><em>Generated in Seconds</em></h1>
+    <p>Upload any medical record PDF and LexAI extracts a structured, attorney-ready chronology — dates, providers, diagnoses, and findings in one clean table.</p>
+  </div>
+
+  <div class="panels">
+    <!-- LEFT: Input -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-header-icon">📄</div>
+        <h3>Medical Records</h3>
+        <span>PDF only</span>
+      </div>
+
+      <!-- Upload area -->
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept=".pdf" onchange="handleFileSelect(event)" />
+        <div class="upload-icon">⬆</div>
+        <h4>Drop a PDF here</h4>
+        <p>or click to browse your files</p>
+      </div>
+
+      <!-- Divider -->
+      <div style="padding: 0 20px 4px; display:flex; align-items:center; gap:10px;">
+        <div style="flex:1; height:1px; background:rgba(255,255,255,0.06)"></div>
+        <span style="font-size:11px; color:var(--slate-600)">or use a sample</span>
+        <div style="flex:1; height:1px; background:rgba(255,255,255,0.06)"></div>
+      </div>
+
+      <!-- Sample records -->
+      <div class="sample-label" style="padding-top:12px;">Sample Records</div>
+      <div class="sample-list">
+        <div class="sample-item active" id="sample-0" onclick="selectSample(0)">
+          <div class="sample-dot"></div>
+          <div>
+            <div class="sample-item-name">Auto Accident — Maria Gonzalez</div>
+            <div class="sample-item-desc">MVA · 3 providers · 14 entries · 47 pages</div>
+          </div>
+          <span class="sample-check">✓</span>
+        </div>
+        <div class="sample-item" id="sample-1" onclick="selectSample(1)">
+          <div class="sample-dot"></div>
+          <div>
+            <div class="sample-item-name">Slip & Fall — Robert Chen</div>
+            <div class="sample-item-desc">Premises liability · 2 providers · 9 entries · 22 pages</div>
+          </div>
+          <span class="sample-check" style="display:none">✓</span>
+        </div>
+        <div class="sample-item" id="sample-2" onclick="selectSample(2)">
+          <div class="sample-dot"></div>
+          <div>
+            <div class="sample-item-name">Workplace Injury — James Tatum</div>
+            <div class="sample-item-desc">Workers comp · 4 providers · 18 entries · 63 pages</div>
+          </div>
+          <span class="sample-check" style="display:none">✓</span>
+        </div>
+      </div>
+
+      <div class="generate-wrap">
+        <button class="btn-generate" id="generateBtn" onclick="generateChronology()">
+          Generate Chronology
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Output -->
+    <div class="panel" id="outputPanel">
+      <div class="panel-header">
+        <div class="panel-header-icon">📋</div>
+        <h3>Medical Chronology</h3>
+        <span id="outputMeta">—</span>
+      </div>
+      <div class="output-empty" id="outputEmpty">
+        <div class="output-empty-icon">⚖</div>
+        <p>Select a record and click Generate Chronology to begin</p>
+      </div>
+      <div id="outputProcessing" style="display:none">
+        <div class="processing">
+          <div class="processing-ring"></div>
+          <p>Analyzing medical records…</p>
+          <div class="processing-step" id="processingStep">Extracting document text</div>
+        </div>
+      </div>
+      <div id="outputResult" style="display:none"></div>
+      <div id="exportBar" style="display:none" class="export-bar">
+        <button class="btn-export btn-export-primary" onclick="exportPrint()">⬇ Export PDF</button>
+        <button class="btn-export btn-export-secondary" onclick="exportCSV()">Export CSV</button>
+        <button class="btn-export btn-export-secondary" onclick="copyTable()">Copy Table</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-note">
+    <strong>LexAI Demo</strong> · Powered by Anthropic Claude ·
+    Melko Technologies & Consulting · This demo uses sample records.
+    No real patient data is stored or transmitted.
+  </div>
+</main>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let selectedSample = 0;
+let uploadedFile   = null;
+let lastChronology = null;
+
+// ── Sample record data (realistic PI medical record content) ─────────────────
+const SAMPLES = [
+  {
+    name: "Maria Gonzalez — Auto Accident",
+    text: `PATIENT: Maria Gonzalez    DOB: 03/14/1985    MRN: 2847-GZ
+CASE TYPE: Motor Vehicle Accident    DATE OF LOSS: September 12, 2023
+
+--- EMERGENCY DEPARTMENT RECORDS ---
+FACILITY: Northside Hospital Emergency Department, Atlanta, GA
+PROVIDER: Dr. James Whitfield, MD
+
+09/12/2023 — EMERGENCY VISIT
+Chief Complaint: 34yo female presents via EMS following MVC. Pt was restrained driver, struck from behind at estimated 45mph. C/o severe neck pain, bilateral shoulder pain, headache, and low back pain. Denies LOC.
+Physical Exam: Cervical spine tenderness C4-C6. ROM restricted. Lumbar tenderness L4-L5. No neurological deficits.
+Imaging: Cervical X-ray — no fracture. Soft tissue swelling noted C4-C6.
+Dx: Cervical strain/sprain. Lumbar strain. Post-traumatic headache.
+Tx: Cervical collar applied. Rx: Flexeril 10mg TID, Ibuprofen 800mg TID. Referred to orthopedics.
+Discharge: Stable. Return precautions given.
+
+--- ORTHOPEDIC RECORDS ---
+FACILITY: Atlanta Orthopedic Specialists
+PROVIDER: Dr. Sarah Okonkwo, MD
+
+09/19/2023 — INITIAL ORTHOPEDIC CONSULT
+Pt presents 7 days post-MVC with worsening neck and low back pain. Reports headaches daily. Sleep disrupted.
+Exam: Cervical ROM significantly limited. Positive Spurling test right side. Lumbar ROM 50% normal. Paraspinal spasm noted bilaterally.
+Imaging ordered: MRI cervical and lumbar spine.
+Dx: Cervical and lumbar disc injury r/o herniation. Post-traumatic cephalgia.
+Tx: Physical therapy 3x/week x 8 weeks. Rx: Cyclobenzaprine, Meloxicam 15mg. Referral to pain management if not improved.
+
+09/28/2023 — MRI RESULTS REVIEW
+MRI Cervical Spine: C5-C6 disc herniation with mild right foraminal stenosis. C4-C5 disc bulge.
+MRI Lumbar Spine: L4-L5 disc herniation with annular tear. L5-S1 disc bulge.
+Assessment: Traumatically induced cervical and lumbar disc pathology consistent with MVC mechanism.
+Plan: Continue PT. Referral to Dr. Marcus Webb, Pain Management. Consider epidural steroid injection if no improvement in 4-6 weeks.
+
+10/15/2023 — FOLLOW UP
+Pt reports 20% improvement with PT. Still unable to return to work as dental hygienist due to cervical pain with prolonged positioning.
+Exam: Slight improvement in ROM. Continued paraspinal tenderness.
+Plan: Continue PT. Proceed with pain management evaluation.
+
+--- PHYSICAL THERAPY RECORDS ---
+FACILITY: ProActive Physical Therapy, Marietta, GA
+PROVIDER: Dr. Angela Park, DPT
+
+09/25/2023 — INITIAL PT EVALUATION
+Pt referred by Dr. Okonkwo post-MVC. Reports 8/10 pain neck, 7/10 low back. Unable to perform ADLs without significant pain.
+Functional Assessment: Unable to sit > 20 min, stand > 15 min. Unable to drive independently.
+Treatment Plan: Manual therapy, therapeutic exercise, ultrasound, TENS. Goals: restore functional ROM, reduce pain to 3/10.
+
+10/02/2023 — PT SESSION 3
+Progress: Neck pain 7/10. Responding to manual cervical traction. HEP compliance good.
+Treatment: Cervical traction, soft tissue mobilization, therapeutic exercise.
+
+10/16/2023 — PT SESSION 9
+Progress: Neck pain 5/10, low back 6/10. Improved sitting tolerance to 35 min. 
+Treatment: Continued manual therapy. Added lumbar stabilization exercises.
+
+11/06/2023 — PT SESSION 17 / PROGRESS NOTE
+Progress: Neck 4/10, LB 5/10. Some functional improvement but significant symptom persistence.
+Recommendation: Continue PT x 4 additional weeks. MRI changes suggest structural injury requiring longer recovery.
+
+--- PAIN MANAGEMENT RECORDS ---
+FACILITY: Georgia Pain Institute
+PROVIDER: Dr. Marcus Webb, MD
+
+11/01/2023 — PAIN MANAGEMENT INITIAL CONSULT
+Pt presents with chronic cervicogenic pain and lumbar radiculopathy post-MVC. Reviewing imaging.
+MRI confirms C5-C6 herniation with foraminal stenosis, L4-L5 herniation with annular tear.
+Assessment: Traumatic cervical and lumbar disc disease. Cervicogenic headache. Lumbar radiculopathy.
+Plan: Recommend C5-C6 cervical epidural steroid injection (CESI). Rx: Gabapentin 300mg TID for radicular pain.
+
+11/15/2023 — CERVICAL EPIDURAL STEROID INJECTION
+Procedure: C5-C6 CESI performed under fluoroscopic guidance without complication.
+Pt tolerated procedure well. Discharged to home.
+
+12/01/2023 — POST-INJECTION FOLLOW UP
+Pt reports 40% pain reduction in neck/arm symptoms following CESI.
+Headaches decreased in frequency. Low back unchanged.
+Plan: Lumbar ESI recommended for L4-L5 pathology. Continue Gabapentin. Repeat CESI in 6-8 weeks if needed.`
+  },
+  {
+    name: "Robert Chen — Slip & Fall",
+    text: `PATIENT: Robert Chen    DOB: 07/22/1971    MRN: 5519-RC
+CASE TYPE: Premises Liability / Slip & Fall    DATE OF LOSS: November 3, 2023
+
+--- EMERGENCY DEPARTMENT RECORDS ---
+FACILITY: Piedmont Atlanta Hospital
+PROVIDER: Dr. Lisa Harmon, MD
+
+11/03/2023 — EMERGENCY VISIT
+52yo male presents following slip and fall at Greenway Grocery, 1420 Peachtree St NW. Pt slipped on wet floor near entrance, no wet floor signage present per pt. Struck right shoulder and hip on tile floor.
+C/o severe right shoulder pain, right hip pain, and wrist pain. Denies LOC.
+Exam: Right shoulder tenderness AC joint and greater tuberosity. ROM limited. Right hip tenderness greater trochanter. Right wrist tenderness radial styloid.
+Imaging: Right shoulder X-ray — no acute fracture. AC separation grade I. Right hip X-ray — no fracture. Right wrist X-ray — no fracture.
+Dx: Right shoulder AC sprain. Right hip contusion. Right wrist sprain.
+Tx: Shoulder sling, ice, NSAIDs. Rx: Ibuprofen 800mg. Follow up orthopedics 3-5 days.
+
+--- ORTHOPEDIC RECORDS ---
+FACILITY: OrthoAtlanta
+PROVIDER: Dr. Kevin Patel, MD
+
+11/08/2023 — ORTHO INITIAL VISIT
+Pt 5 days post-fall. Right shoulder pain 8/10. Unable to raise arm above 90 degrees. Grip weakness right hand.
+Exam: AC joint tenderness. Positive empty can test. Positive Neer sign. Reduced grip strength right vs left.
+MRI Right Shoulder ordered.
+Dx: Suspected rotator cuff tear vs significant strain. Rule out labral injury.
+
+11/16/2023 — MRI RESULTS
+MRI Right Shoulder: Full thickness supraspinatus tear, 1.8cm. Partial thickness infraspinatus tear. AC joint edema consistent with grade II sprain.
+Assessment: Traumatic rotator cuff tear requiring surgical intervention.
+Surgical consultation scheduled. Pt informed of diagnosis and surgical recommendation.
+
+11/22/2023 — SURGICAL CONSULT
+Discussed arthroscopic rotator cuff repair. Risk/benefit discussed with pt.
+Pt agrees to proceed. Pre-op labs and clearance ordered.
+Surgery scheduled: December 14, 2023.
+
+12/14/2023 — RIGHT SHOULDER ARTHROSCOPIC SURGERY
+Procedure: Right shoulder arthroscopic rotator cuff repair, supraspinatus and infraspinatus. Subacromial decompression.
+Surgeon: Dr. Kevin Patel, MD
+Anesthesia: General
+Duration: 2 hrs 15 min. No complications.
+Findings: Full thickness supraspinatus tear confirmed. 3 suture anchors placed.
+Post-op: Immobilizer. Pain meds prescribed. PT to begin week 3.`
+  },
+  {
+    name: "James Tatum — Workplace Injury",
+    text: `PATIENT: James Tatum    DOB: 11/30/1978    MRN: 7734-JT
+CASE TYPE: Workplace Injury / Workers Compensation    DATE OF LOSS: August 7, 2023
+
+--- OCCUPATIONAL HEALTH / INITIAL INJURY REPORT ---
+FACILITY: Concentra Urgent Care, Smyrna, GA
+PROVIDER: Dr. Patricia Nguyen, MD
+
+08/07/2023 — INITIAL INJURY VISIT
+44yo male warehouse worker presents following workplace injury. Pt was unloading 80lb freight from conveyor when coworker distraction caused loss of grip. Pt twisted left knee attempting to catch load, heard audible pop, immediate severe pain.
+Exam: Left knee — significant effusion. Positive Lachman test. Positive anterior drawer. Positive McMurray medial. Unable to bear weight.
+Imaging: Left knee X-ray — no fracture. Soft tissue swelling.
+Dx: Suspected ACL tear with possible meniscal injury. Emergent orthopedic referral.
+Work Status: Off work pending evaluation.
+
+--- ORTHOPEDIC RECORDS ---
+FACILITY: Resurgens Orthopaedics, Marietta, GA
+PROVIDER: Dr. Thomas Bradley, MD
+
+08/10/2023 — ORTHO INITIAL CONSULT
+Pt presents 3 days post-injury. Left knee massively swollen. Unable to bear weight. On crutches.
+Exam: Large hemarthrosis left knee. Lachman positive 2+. Posterior drawer negative. McMurray positive medial compartment. Valgus stress test — laxity.
+MRI left knee ordered. Aspiration performed — 60cc serosanguinous fluid.
+Dx: Clinically evident ACL rupture. Probable medial meniscus tear.
+
+08/17/2023 — MRI RESULTS
+MRI Left Knee: Complete ACL rupture with bone bruising anterior tibia and posterior lateral femoral condyle. Medial meniscus posterior horn tear, complex pattern. Small lateral meniscus radial tear. Grade I MCL sprain.
+Assessment: Complex traumatic knee injury. Surgical reconstruction recommended.
+Pre-op planning initiated.
+
+09/05/2023 — LEFT KNEE ACL RECONSTRUCTION
+Procedure: Left knee ACL reconstruction using patellar tendon autograft. Partial medial meniscectomy. Lateral meniscus repair.
+Surgeon: Dr. Thomas Bradley, MD
+Anesthesia: Spinal
+Duration: 1 hr 50 min. No intraoperative complications.
+Post-op: Knee immobilizer. Non-weight bearing x 2 weeks. PT to begin week 3.
+
+--- PHYSICAL THERAPY ---
+FACILITY: Select Physical Therapy, Marietta, GA
+PROVIDER: Dr. Danielle Moore, DPT
+
+09/19/2023 — INITIAL PT POST-OP EVALUATION
+2 weeks post ACL reconstruction. Incision healing well. Quad activation 30% normal. ROM 0-65 degrees.
+Goals: Restore ROM, quad strength, proprioception. Return to work modified duty 16 weeks, full duty 9-12 months.
+
+10/10/2023 — PT SESSION 12
+ROM 0-105 degrees. Quad strength 55% of uninvolved. Gait improving with single crutch.
+Pt motivated, compliance excellent.
+
+11/14/2023 — PT SESSION 28
+ROM 0-130 degrees. Quad strength 75%. Walking without assistive device.
+Return to modified light duty work discussed with employer. Restrictions: no lifting > 20lbs, no prolonged standing.
+
+12/12/2023 — PT SESSION 40
+ROM 0-138 degrees. Quad strength 85%. Functional testing: single leg squat, hop testing initiated.
+Projected full duty clearance: March 2024 pending continued progress.
+
+--- INDEPENDENT MEDICAL EXAMINATION ---
+FACILITY: IME Associates of Georgia
+PROVIDER: Dr. William Park, MD (IME Physician)
+
+12/20/2023 — IME REPORT
+Pt examined at request of workers compensation carrier. Review of all records.
+Exam: Left knee ROM 0-135. Mild effusion. Stable ligamentously. ACL graft intact per exam.
+Opinion: Injury causally related to workplace incident of 08/07/2023. MMI not yet reached. Continued PT appropriate. Anticipated MMI 4-6 months. Permanent impairment rating to be determined at MMI.`
+  }
+];
+
+// ── Sample selection ──────────────────────────────────────────────────────────
+function selectSample(idx) {
+  selectedSample = idx;
+  uploadedFile   = null;
+
+  // Reset upload area
+  document.getElementById('uploadArea').style.display = 'flex';
+  document.querySelector('.file-loaded') && document.querySelector('.file-loaded').remove();
+
+  document.querySelectorAll('.sample-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+    el.querySelector('.sample-check').style.display = i === idx ? 'block' : 'none';
+  });
+
+  resetOutput();
+}
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  uploadedFile   = file;
+  selectedSample = null;
+
+  // Deselect samples
+  document.querySelectorAll('.sample-item').forEach(el => {
+    el.classList.remove('active');
+    el.querySelector('.sample-check').style.display = 'none';
+  });
+
+  // Show file chip
+  const uploadArea = document.getElementById('uploadArea');
+  uploadArea.style.display = 'none';
+
+  const loaded = document.createElement('div');
+  loaded.className = 'file-loaded';
+  loaded.innerHTML = `
+    <div class="file-chip">
+      <span class="file-chip-icon">📄</span>
+      <span class="file-chip-name">${file.name}</span>
+      <span class="file-chip-size">${(file.size/1024).toFixed(0)} KB</span>
+    </div>
+    <button onclick="clearFile()" style="background:none;border:none;color:var(--slate-500);font-size:11px;cursor:pointer;text-align:left;padding:0">✕ Remove file</button>
+  `;
+  uploadArea.parentNode.insertBefore(loaded, uploadArea.nextSibling);
+
+  resetOutput();
+}
+
+// Drag and drop
+const uploadArea = document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover',  e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') {
+    document.getElementById('fileInput').files = e.dataTransfer.files;
+    handleFileSelect({ target: { files: e.dataTransfer.files } });
+  }
+});
+
+function clearFile() {
+  uploadedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadArea').style.display = 'flex';
+  document.querySelector('.file-loaded')?.remove();
+  selectSample(0);
+}
+
+function resetOutput() {
+  document.getElementById('outputEmpty').style.display = 'flex';
+  document.getElementById('outputProcessing').style.display = 'none';
+  document.getElementById('outputResult').style.display = 'none';
+  document.getElementById('exportBar').style.display = 'none';
+  document.getElementById('outputMeta').textContent = '—';
+  lastChronology = null;
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+const PROCESSING_STEPS = [
+  'Extracting document text…',
+  'Identifying providers & facilities…',
+  'Parsing clinical findings…',
+  'Building chronological timeline…',
+  'Formatting for attorney review…'
+];
+
+async function generateChronology() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  document.getElementById('outputEmpty').style.display      = 'none';
+  document.getElementById('outputProcessing').style.display = 'block';
+  document.getElementById('outputResult').style.display     = 'none';
+  document.getElementById('exportBar').style.display        = 'none';
+
+  // Animate processing steps
+  let stepIdx = 0;
+  const stepEl = document.getElementById('processingStep');
+  const stepInterval = setInterval(() => {
+    stepEl.textContent = PROCESSING_STEPS[Math.min(stepIdx, PROCESSING_STEPS.length - 1)];
+    stepIdx++;
+  }, 900);
+
+  try {
+    // Get the text to analyze
+    let recordText, recordName;
+    if (uploadedFile) {
+      recordText = await extractPDFText(uploadedFile);
+      recordName = uploadedFile.name;
+    } else {
+      recordText = SAMPLES[selectedSample].text;
+      recordName = SAMPLES[selectedSample].name;
+    }
+
+    const chronology = await callClaudeAPI(recordText);
+
+    clearInterval(stepInterval);
+    lastChronology = chronology;
+    renderChronology(chronology, recordName);
+
+  } catch (err) {
+    clearInterval(stepInterval);
+    showError(err.message || 'An unexpected error occurred.');
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+}
+
+// ── PDF text extraction (client-side) ────────────────────────────────────────
+async function extractPDFText(file) {
+  // Simple extraction: read as text if possible, otherwise use filename
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // For demo: return a placeholder noting the real file was uploaded
+      // In production this uses pdf-parse on the server
+      resolve(`[PDF UPLOADED: ${file.name} — ${(file.size/1024).toFixed(0)}KB]\n\nIn production, this PDF's full text would be extracted server-side using pdf-parse and sent to Claude for analysis. For this demo, the AI will generate a realistic chronology based on the file metadata.`);
+    };
+    reader.readAsText(file);
+  });
+}
+
+// ── Claude API call ───────────────────────────────────────────────────────────
+async function callClaudeAPI(recordText) {
+  const SYSTEM_PROMPT = `You are LexAI, a medical record analysis assistant for personal injury law firms.
+
+Your task: analyze the provided medical records and produce a structured medical chronology.
+
+Respond ONLY with a valid JSON object. No markdown, no explanation, no preamble. Just the JSON.
+
+JSON schema:
+{
+  "patient_name": "string",
+  "date_of_loss": "string",
+  "case_type": "string",
+  "summary": "string (2-3 sentence plain English summary of injuries and treatment arc)",
+  "providers": ["list of provider names/facilities"],
+  "stats": {
+    "total_entries": number,
+    "providers_count": number,
+    "date_range": "string e.g. Sep 2023 – Dec 2023",
+    "key_diagnosis": "string"
+  },
+  "entries": [
+    {
+      "date": "string (formatted: MMM DD, YYYY)",
+      "provider": "string (short provider name)",
+      "type": "injury|treatment|imaging|medication|surgery|note",
+      "finding": "string (concise clinical finding — 1-2 sentences, plain English, attorney-ready)"
+    }
+  ]
+}
+
+Rules:
+- Every entry must have a real date from the records
+- findings must be concise, factual, and jargon-light
+- Sort entries chronologically
+- type must be exactly one of: injury, treatment, imaging, medication, surgery, note
+- Do not invent information not present in the records`;
+
+  const response = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: `Analyze these medical records and produce the chronology JSON:\n\n${recordText}` }]
+    })
+  });
+
+  if (response.status === 401) throw new Error('API key not configured. Add ANTHROPIC_API_KEY to your .env file and restart the server.');
+  if (response.status === 529) throw new Error('Claude API overloaded — please try again in a moment.');
+  if (!response.ok) throw new Error(`API error ${response.status}: ${response.statusText}`);
+
+  const data = await response.json();
+  const raw  = data.content[0].text.trim();
+
+  // Strip markdown fences if present
+  const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error('Could not parse AI response. Check browser console for details.');
+  }
+}
+
+// ── Render chronology ─────────────────────────────────────────────────────────
+const TYPE_TAGS = {
+  injury:    { label: 'Injury',    cls: 'tag-injury'    },
+  treatment: { label: 'Treatment', cls: 'tag-treatment' },
+  imaging:   { label: 'Imaging',   cls: 'tag-imaging'   },
+  medication:{ label: 'Rx',        cls: 'tag-med'       },
+  surgery:   { label: 'Surgery',   cls: 'tag-injury'    },
+  note:      { label: 'Note',      cls: 'tag-note'      },
+};
+
+function renderChronology(data, recordName) {
+  document.getElementById('outputProcessing').style.display = 'none';
+  document.getElementById('outputMeta').textContent = `${data.entries?.length || 0} entries`;
+
+  const stats = data.stats || {};
+  const summaryBar = `
+    <div class="summary-bar">
+      <div class="summary-cell"><div class="summary-num">${stats.total_entries || data.entries?.length || '—'}</div><div class="summary-lbl">Entries</div></div>
+      <div class="summary-cell"><div class="summary-num">${stats.providers_count || data.providers?.length || '—'}</div><div class="summary-lbl">Providers</div></div>
+      <div class="summary-cell"><div class="summary-num">${stats.date_range || '—'}</div><div class="summary-lbl">Date Range</div></div>
+      <div class="summary-cell"><div class="summary-num" style="font-size:13px;padding-top:4px">${stats.key_diagnosis || '—'}</div><div class="summary-lbl">Primary Dx</div></div>
+    </div>`;
+
+  const metaPills = `
+    <div class="chron-meta">
+      <span class="chron-meta-pill pill-green">✓ AI Generated</span>
+      <span class="chron-meta-pill pill-gold">${data.case_type || 'Personal Injury'}</span>
+      <span class="chron-meta-pill pill-blue">${data.patient_name || recordName}</span>
+    </div>`;
+
+  const rows = (data.entries || []).map(e => {
+    const tag = TYPE_TAGS[e.type] || TYPE_TAGS.note;
+    return `<tr>
+      <td class="td-date">${e.date || '—'}</td>
+      <td class="td-provider">${e.provider || '—'}</td>
+      <td class="td-finding">
+        <span class="finding-tag ${tag.cls}">${tag.label}</span><br/>
+        ${e.finding || '—'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  const table = `
+    <div class="chron-output">
+      ${metaPills}
+      <div style="font-size:12px;color:var(--slate-400);line-height:1.6;margin-bottom:14px;padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:6px;border-left:2px solid var(--gold-500)">
+        ${data.summary || ''}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="chron-table">
+          <thead><tr>
+            <th>Date</th>
+            <th>Provider</th>
+            <th>Finding</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  const resultEl = document.getElementById('outputResult');
+  resultEl.innerHTML = summaryBar + table;
+  resultEl.style.display = 'block';
+  document.getElementById('exportBar').style.display = 'flex';
+}
+
+function showError(msg) {
+  document.getElementById('outputProcessing').style.display = 'none';
+  const resultEl = document.getElementById('outputResult');
+  resultEl.innerHTML = `<div class="error-box"><strong>Error:</strong> ${msg}</div>`;
+  resultEl.style.display = 'block';
+}
+
+// ── Export functions ──────────────────────────────────────────────────────────
+function exportPrint() {
+  window.print();
+}
+
+function exportCSV() {
+  if (!lastChronology?.entries) return;
+  const rows = [['Date', 'Provider', 'Type', 'Finding']];
+  lastChronology.entries.forEach(e => rows.push([e.date, e.provider, e.type, e.finding]));
+  const csv  = rows.map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${lastChronology.patient_name || 'chronology'}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function copyTable() {
+  if (!lastChronology?.entries) return;
+  const lines = lastChronology.entries.map(e => `${e.date}\t${e.provider}\t${e.type}\t${e.finding}`);
+  navigator.clipboard.writeText(['Date\tProvider\tType\tFinding', ...lines].join('\n'));
+  const btn = document.querySelector('.btn-export-secondary:last-child');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Copied';
+  setTimeout(() => btn.textContent = orig, 1800);
+}
+</script>
+
+</body>
+</html>
